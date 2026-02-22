@@ -99,16 +99,20 @@ class TestFetchAllCitiesCurrent:
         ok_record = SolarWeatherRecord(
             city_name="Lahore",
             timestamp=datetime(2025, 1, 1, tzinfo=timezone.utc),
-            temperature_2m=30.0, relative_humidity_2m=50.0,
-            wind_speed_10m=10.0, cloud_cover=20.0,
-            shortwave_radiation=500.0, direct_radiation=300.0,
-            direct_normal_irradiance=400.0, diffuse_radiation=200.0,
+            temperature_2m=30.0,
+            relative_humidity_2m=50.0,
+            wind_speed_10m=10.0,
+            cloud_cover=20.0,
+            shortwave_radiation=500.0,
+            direct_radiation=300.0,
+            direct_normal_irradiance=400.0,
+            diffuse_radiation=200.0,
         )
         mock_fetch.side_effect = [
-            RuntimeError("network"),   # Islamabad fails
-            [ok_record],               # Lahore ok
-            RuntimeError("network"),   # Karachi fails
-            [ok_record],               # Peshawar ok
+            RuntimeError("network"),  # Islamabad fails
+            [ok_record],  # Lahore ok
+            RuntimeError("network"),  # Karachi fails
+            [ok_record],  # Peshawar ok
         ]
         result = fetch_all_cities_current()
         assert "Lahore" in result

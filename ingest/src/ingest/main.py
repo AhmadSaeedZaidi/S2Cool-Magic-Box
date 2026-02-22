@@ -122,10 +122,18 @@ def run_historic(database_url: str, start_date: date, end_date: date) -> None:
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="ingest", description="Open-Meteo → Neon Postgres.")
     p.add_argument("--mode", choices=["current", "historic"], required=True)
-    p.add_argument("--start-date", default=None, metavar="YYYY-MM-DD",
-                   help="[historic] First date (inclusive). Env: HISTORIC_START_DATE")
-    p.add_argument("--end-date", default=None, metavar="YYYY-MM-DD",
-                   help="[historic] Last date (inclusive). Env: HISTORIC_END_DATE")
+    p.add_argument(
+        "--start-date",
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="[historic] First date (inclusive). Env: HISTORIC_START_DATE",
+    )
+    p.add_argument(
+        "--end-date",
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="[historic] Last date (inclusive). Env: HISTORIC_END_DATE",
+    )
     return p
 
 
@@ -148,16 +156,20 @@ def main() -> None:
         start_date = (
             _parse_date_arg(args.start_date, "--start-date")
             if args.start_date
-            else _parse_date_arg(os.environ["HISTORIC_START_DATE"], "HISTORIC_START_DATE")
-            if os.environ.get("HISTORIC_START_DATE")
-            else date.today() - timedelta(days=HISTORIC_DEFAULT_LOOKBACK_DAYS)
+            else (
+                _parse_date_arg(os.environ["HISTORIC_START_DATE"], "HISTORIC_START_DATE")
+                if os.environ.get("HISTORIC_START_DATE")
+                else date.today() - timedelta(days=HISTORIC_DEFAULT_LOOKBACK_DAYS)
+            )
         )
         end_date = (
             _parse_date_arg(args.end_date, "--end-date")
             if args.end_date
-            else _parse_date_arg(os.environ["HISTORIC_END_DATE"], "HISTORIC_END_DATE")
-            if os.environ.get("HISTORIC_END_DATE")
-            else date.today() - timedelta(days=2)
+            else (
+                _parse_date_arg(os.environ["HISTORIC_END_DATE"], "HISTORIC_END_DATE")
+                if os.environ.get("HISTORIC_END_DATE")
+                else date.today() - timedelta(days=2)
+            )
         )
         run_historic(database_url, start_date, end_date)
 
