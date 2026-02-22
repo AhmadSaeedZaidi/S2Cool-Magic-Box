@@ -50,7 +50,7 @@ def _city_loop(database_url: str, fetch_fn, mode_label: str) -> tuple[int, int]:
         logger.info("[%s] Processing %s", mode_label, city.name)
         try:
             records = fetch_fn(city)
-        except Exception:  # noqa: BLE001
+        except Exception:
             logger.exception("[%s] Fetch failed, skipping", city.name)
             failures += 1
             continue
@@ -61,7 +61,7 @@ def _city_loop(database_url: str, fetch_fn, mode_label: str) -> tuple[int, int]:
         try:
             upsert_records(database_url, records, city_name=city.name)
             successes += 1
-        except Exception:  # noqa: BLE001
+        except Exception:
             logger.exception("[%s] Upsert failed", city.name)
             failures += 1
     return successes, failures
@@ -110,7 +110,7 @@ def run_historic(database_url: str, start_date: date, end_date: date) -> None:
         try:
             upsert_records(database_url, records, city_name=city.name)
             successes += 1
-        except Exception:  # noqa: BLE001
+        except Exception:
             logger.exception("[historic] [%s] upsert failed", city.name)
             failures += 1
     _finish(successes, failures, len(PAKISTAN_CITIES))

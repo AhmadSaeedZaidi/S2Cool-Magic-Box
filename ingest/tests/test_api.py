@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from ingest.api import (
-    CURRENT_API_URL,
-    HISTORIC_API_URL,
     HOURLY_VARIABLES,
     CityConfig,
     SolarWeatherRecord,
@@ -46,7 +44,7 @@ class TestParseHourly:
         assert len(records) == 2
         assert all(isinstance(r, SolarWeatherRecord) for r in records)
         assert records[0].city_name == "Lahore"
-        assert records[0].timestamp == datetime(2025, 6, 1, 0, 0, tzinfo=timezone.utc)
+        assert records[0].timestamp == datetime(2025, 6, 1, 0, 0, tzinfo=UTC)
         assert records[0].temperature_2m == 1.0
 
     def test_unparseable_timestamp_skipped(self):
@@ -98,7 +96,7 @@ class TestFetchAllCitiesCurrent:
     def test_skips_failing_city(self, mock_fetch):
         ok_record = SolarWeatherRecord(
             city_name="Lahore",
-            timestamp=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            timestamp=datetime(2025, 1, 1, tzinfo=UTC),
             temperature_2m=30.0,
             relative_humidity_2m=50.0,
             wind_speed_10m=10.0,
