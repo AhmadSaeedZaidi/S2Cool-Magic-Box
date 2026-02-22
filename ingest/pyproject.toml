@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "s2cool-ingest"
-version = "0.2.0"
+version = "0.1.0"
 description = "Automated Open-Meteo solar & weather data ingestion for Pakistani cities into Neon Postgres."
 authors = ["Ahmad Saeed"]
 license = "MIT"
