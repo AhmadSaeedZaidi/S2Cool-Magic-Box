@@ -174,7 +174,9 @@ def fetch_city_weather(city: CityConfig) -> list[SolarWeatherRecord]:
     }
     logger.info(
         "[current] %s — past %dh + forecast %dh",
-        city.name, CURRENT_PAST_HOURS, CURRENT_FORECAST_HOURS,
+        city.name,
+        CURRENT_PAST_HOURS,
+        CURRENT_FORECAST_HOURS,
     )
     payload = _get_json(_build_session(), CURRENT_API_URL, params, city.name)
     hourly = payload.get("hourly")
@@ -240,14 +242,18 @@ def fetch_city_weather_historic(
         }
         logger.info(
             "[historic] [%s] %s → %s",
-            city.name, chunk_start.isoformat(), chunk_end.isoformat(),
+            city.name,
+            chunk_start.isoformat(),
+            chunk_end.isoformat(),
         )
         try:
             payload = _get_json(session, HISTORIC_API_URL, params, city.name)
         except Exception:  # noqa: BLE001
             logger.exception(
                 "[historic] [%s] chunk %s→%s failed, skipping",
-                city.name, chunk_start, chunk_end,
+                city.name,
+                chunk_start,
+                chunk_end,
             )
             chunk_start = chunk_end + timedelta(days=1)
             continue
@@ -257,13 +263,18 @@ def fetch_city_weather_historic(
             chunk_records = _parse_hourly(city.name, hourly)
             logger.info(
                 "[historic] [%s] chunk %s→%s — %d records",
-                city.name, chunk_start, chunk_end, len(chunk_records),
+                city.name,
+                chunk_start,
+                chunk_end,
+                len(chunk_records),
             )
             all_records.extend(chunk_records)
         else:
             logger.warning(
                 "[historic] [%s] 'hourly' missing for %s→%s, skipping",
-                city.name, chunk_start, chunk_end,
+                city.name,
+                chunk_start,
+                chunk_end,
             )
 
         chunk_start = chunk_end + timedelta(days=1)
