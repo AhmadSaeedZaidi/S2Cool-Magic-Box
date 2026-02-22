@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Generator, Sequence
 from contextlib import contextmanager
-from typing import Generator, Sequence
 
 import psycopg2
 import psycopg2.extras
-from psycopg2.extensions import connection as PgConnection
+from psycopg2.extensions import connection as pgconnection
 
 from .api import SolarWeatherRecord
 
@@ -54,13 +54,13 @@ DO UPDATE SET
 
 
 @contextmanager
-def get_connection(database_url: str) -> Generator[PgConnection, None, None]:
+def get_connection(database_url: str) -> Generator[pgconnection, None, None]:
     """Yield a psycopg2 connection with auto-commit/rollback semantics.
 
     Args:
         database_url: libpq-compatible DSN (Neon requires ``sslmode=require``).
     """
-    conn: PgConnection | None = None
+    conn: pgconnection | None = None
     try:
         conn = psycopg2.connect(database_url)
         yield conn
@@ -77,9 +77,8 @@ def get_connection(database_url: str) -> Generator[PgConnection, None, None]:
 def init_db(database_url: str) -> None:
     """Create ``solar_weather_data`` table if it doesn't exist (idempotent)."""
     logger.info("Initialising database schema.")
-    with get_connection(database_url) as conn:
-        with conn.cursor() as cur:
-            cur.execute(CREATE_TABLE_SQL)
+    with get_connection(database_url) as conn, conn.cursor() as cur:
+        cur.execute(CREATE_TABLE_SQL)
 
 
 def upsert_records(
@@ -116,7 +115,6 @@ def upsert_records(
     ]
     logger.info("[%s] Upserting %d records.", label, len(rows))
 
-    with get_connection(database_url) as conn:
-        with conn.cursor() as cur:
-            psycopg2.extras.execute_values(cur, UPSERT_SQL, rows, page_size=500)
-            logger.info("[%s] Upsert complete — %s", label, cur.statusmessage)
+    with get_connection(database_url) as conn, conn.cursor() as cur:
+        psycopg2.extras.execute_values(cur, UPSERT_SQL, rows, page_size=500)
+        logger.info("[%s] Upsert complete — %s", label, cur.statusmessage)

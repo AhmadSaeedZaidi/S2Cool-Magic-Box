@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from typing import Any, NamedTuple
 
 import requests
@@ -106,7 +106,7 @@ def _parse_hourly(city_name: str, hourly: dict[str, Any]) -> list[SolarWeatherRe
     records: list[SolarWeatherRecord] = []
     for i, ts_str in enumerate(times):
         try:
-            ts = datetime.fromisoformat(ts_str).replace(tzinfo=timezone.utc)
+            ts = datetime.fromisoformat(ts_str).replace(tzinfo=UTC)
         except ValueError:
             logger.warning("[%s] Skipping unparseable timestamp '%s'.", city_name, ts_str)
             continue
@@ -196,7 +196,7 @@ def fetch_all_cities_current(
     for city in cities:
         try:
             results[city.name] = fetch_city_weather(city)
-        except Exception:  # noqa: BLE001
+        except Exception:
             logger.exception("[current] [%s] skipping due to error", city.name)
     return results
 
@@ -248,7 +248,7 @@ def fetch_city_weather_historic(
         )
         try:
             payload = _get_json(session, HISTORIC_API_URL, params, city.name)
-        except Exception:  # noqa: BLE001
+        except Exception:
             logger.exception(
                 "[historic] [%s] chunk %s→%s failed, skipping",
                 city.name,
@@ -312,6 +312,6 @@ def fetch_all_cities_historic(
                 chunk_days=chunk_days,
                 sleep_seconds=sleep_seconds,
             )
-        except Exception:  # noqa: BLE001
+        except Exception:
             logger.exception("[historic] [%s] skipping city due to error", city.name)
     return results

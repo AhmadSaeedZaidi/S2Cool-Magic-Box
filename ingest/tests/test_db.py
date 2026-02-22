@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from unittest.mock import MagicMock, call, patch
+from datetime import UTC, datetime
+from unittest.mock import MagicMock, patch
 
 from ingest.api import SolarWeatherRecord
 from ingest.db import CREATE_TABLE_SQL, UPSERT_SQL, init_db, upsert_records
@@ -12,7 +12,7 @@ from ingest.db import CREATE_TABLE_SQL, UPSERT_SQL, init_db, upsert_records
 def _record(city: str = "Lahore", temp: float = 30.0) -> SolarWeatherRecord:
     return SolarWeatherRecord(
         city_name=city,
-        timestamp=datetime(2025, 6, 1, 12, 0, tzinfo=timezone.utc),
+        timestamp=datetime(2025, 6, 1, 12, 0, tzinfo=UTC),
         temperature_2m=temp,
         relative_humidity_2m=55.0,
         wind_speed_10m=12.0,
