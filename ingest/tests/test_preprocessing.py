@@ -1,13 +1,16 @@
-"""Tests for ingest.preprocessing — S2CoolDataPreprocessor pipeline."""
+"""Tests for pipeline.preprocessing — S2CoolDataPreprocessor pipeline."""
 
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 
 import numpy as np
 import pandas as pd
 
-from ingest.preprocessing import S2CoolDataPreprocessor
+sys.path.append(str(Path(__file__).resolve().parents[2]))
+
+from pipeline.preprocessing import S2CoolDataPreprocessor
 
 
 def _build_sample_df() -> pd.DataFrame:
