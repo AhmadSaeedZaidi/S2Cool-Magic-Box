@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>S2Cool Demo</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; max-width: 720px; }
+    h1 { margin-bottom: 4px; }
+    p { color: #555; }
+    .box { border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-top: 16px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    label { font-size: 12px; color: #444; display: block; margin-bottom: 4px; }
+    input { width: 100%; padding: 8px; box-sizing: border-box; }
+    button { margin-top: 12px; padding: 10px 14px; cursor: pointer; }
+    pre { background: #f8f8f8; border: 1px solid #eee; padding: 12px; overflow: auto; }
+    .banner { padding: 10px; border-radius: 6px; font-weight: bold; margin-top: 10px; display: none; }
+    .no-cooling { background: #fff3cd; color: #7a5b00; border: 1px solid #ffe08a; }
+  </style>
+</head>
+<body>
+  <h1>S2Cool Basic Frontend</h1>
+  <p>Minimal demo UI for the math decision endpoint.</p>
+
+  <div class="box">
+    <div class="grid">
+      <div>
+        <label>City</label>
+        <input id="city" value="Lahore" />
+      </div>
+      <div>
+        <label>Timestamp (UTC)</label>
+        <input id="timestamp" value="2026-03-01T12:00:00Z" />
+      </div>
+      <div>
+        <label>Predicted GHI (W/m²)</label>
+        <input id="ghi" type="number" value="780" />
+      </div>
+      <div>
+        <label>Predicted Ambient Temp (°C)</label>
+        <input id="temp" type="number" value="34" />
+      </div>
+      <div>
+        <label>Panel Count</label>
+        <input id="panels" type="number" value="10" />
+      </div>
+      <div>
+        <label>Panel Watt Rating</label>
+        <input id="panel_watt" type="number" value="640" />
+      </div>
+    </div>
+
+    <button id="predictBtn">Run Decision</button>
+    <div id="noCoolingBanner" class="banner no-cooling">NO COOLING NEEDED</div>
+
+    <h3>Response</h3>
+    <pre id="output">{}</pre>
+  </div>
+
+  <script>
+    const output = document.getElementById('output');
+    const noCoolingBanner = document.getElementById('noCoolingBanner');
+
+    async function runDecision() {
+      const payload = {
+        city: document.getElementById('city').value,
+        timestamp_utc: document.getElementById('timestamp').value,
+        predicted_ghi_wm2: Number(document.getElementById('ghi').value),
+        predicted_ambient_temp_c: Number(document.getElementById('temp').value),
+        panel_count: Number(document.getElementById('panels').value),
+        panel_watt_rating: Number(document.getElementById('panel_watt').value),
+        operating_hours_enabled: true
+      };
+
+      try {
+        const res = await fetch('/v1/predict/math', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        output.textContent = JSON.stringify(data, null, 2);
+
+        if (data.mode === 'NO_COOLING_NEEDED') {
+          noCoolingBanner.style.display = 'block';
+        } else {
+          noCoolingBanner.style.display = 'none';
+        }
+      } catch (err) {
+        output.textContent = `Request failed: ${err}`;
+        noCoolingBanner.style.display = 'none';
+      }
+    }
+
+    document.getElementById('predictBtn').addEventListener('click', runDecision);
+  </script>
+</body>
+</html>

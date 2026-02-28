@@ -1,4 +1,4 @@
-"""Train S2Cool GHI models from preprocessed features (no database access)."""
+"""Train S2Cool GHI and temperature models from preprocessed features."""
 
 from __future__ import annotations
 
@@ -43,8 +43,10 @@ class TrainOutput:
     trained_at_utc: str
     train_rows: int
     test_rows: int
-    xgboost: ModelMetrics
-    lstm: ModelMetrics
+    xgboost_ghi: ModelMetrics
+    xgboost_temp: ModelMetrics
+    lstm_ghi: ModelMetrics
+    lstm_temp: ModelMetrics
 
 
 def configure_logging() -> None:
@@ -96,14 +98,14 @@ def load_processed_dataframe(csv_path: Path = PROCESSED_CSV_PATH) -> pd.DataFram
 
 def build_train_test_matrices(
     df: pd.DataFrame,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
-    """Create strict chronological train/test matrices for GHI prediction.
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, pd.Series, pd.Series]:
+    """Create strict chronological train/test matrices for both targets.
 
     Args:
         df: Processed dataframe.
 
     Returns:
-        X_train, X_test, y_train_ghi, y_test_ghi.
+        X_train, X_test, y_train_ghi, y_test_ghi, y_train_temp, y_test_temp.
     """
     target_columns = ["Target_GHI_next_1h", "Target_Temp_next_1h"]
     missing_targets = [column for column in target_columns if column not in df.columns]
@@ -126,20 +128,25 @@ def build_train_test_matrices(
     x_test = x_df.iloc[split_index:].copy()
     y_train_ghi = y_df.iloc[:split_index]["Target_GHI_next_1h"].copy()
     y_test_ghi = y_df.iloc[split_index:]["Target_GHI_next_1h"].copy()
+    y_train_temp = y_df.iloc[:split_index]["Target_Temp_next_1h"].copy()
+    y_test_temp = y_df.iloc[split_index:]["Target_Temp_next_1h"].copy()
 
     logger.info("X_train shape=%s | X_test shape=%s", x_train.shape, x_test.shape)
     logger.info("y_train_ghi shape=%s | y_test_ghi shape=%s", y_train_ghi.shape, y_test_ghi.shape)
-    return x_train, x_test, y_train_ghi, y_test_ghi
+    logger.info("y_train_temp shape=%s | y_test_temp shape=%s", y_train_temp.shape, y_test_temp.shape)
+    return x_train, x_test, y_train_ghi, y_test_ghi, y_train_temp, y_test_temp
 
 
-def train_xgboost(
+def train_xgboost_model(
     x_train: pd.DataFrame,
     x_test: pd.DataFrame,
-    y_train_ghi: pd.Series,
-    y_test_ghi: pd.Series,
+    y_train: pd.Series,
+    y_test: pd.Series,
     artifacts_dir: Path,
+    model_name: str,
+    model_filename: str,
 ) -> ModelMetrics:
-    """Train and evaluate XGBoost baseline for GHI forecast."""
+    """Train and evaluate one XGBoost regressor."""
     model = xgb.XGBRegressor(
         learning_rate=0.05,
         max_depth=5,
@@ -148,43 +155,75 @@ def train_xgboost(
         random_state=42,
         n_jobs=-1,
     )
-    model.fit(x_train, y_train_ghi.to_numpy())
+    model.fit(x_train, y_train.to_numpy())
 
     preds = model.predict(x_test)
-    mae = float(mean_absolute_error(y_test_ghi, preds))
-    rmse = float(np.sqrt(mean_squared_error(y_test_ghi, preds)))
+    mae = float(mean_absolute_error(y_test, preds))
+    rmse = float(np.sqrt(mean_squared_error(y_test, preds)))
 
-    model_path = artifacts_dir / "xgboost_ghi_model.pkl"
+    model_path = artifacts_dir / model_filename
     joblib.dump(model, model_path)
-    logger.info("XGBoost MAE=%.4f RMSE=%.4f saved=%s", mae, rmse, model_path)
+    logger.info("%s MAE=%.4f RMSE=%.4f saved=%s", model_name, mae, rmse, model_path)
 
-    return ModelMetrics(model_name="xgboost", mae=mae, rmse=rmse, model_path=str(model_path))
+    return ModelMetrics(model_name=model_name, mae=mae, rmse=rmse, model_path=str(model_path))
 
 
-def train_lstm(
-    x_train: pd.DataFrame,
-    x_test: pd.DataFrame,
-    y_train_ghi: pd.Series,
-    y_test_ghi: pd.Series,
+def create_sequences(
+    x_data: pd.DataFrame,
+    y_data: pd.Series,
+    time_steps: int = 24,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Create sliding-window sequences for LSTM.
+
+    Args:
+        x_data: 2D feature frame sorted chronologically.
+        y_data: 1D target series aligned to x_data.
+        time_steps: Sequence window length.
+
+    Returns:
+        Tuple ``(X_seq, y_seq)`` with shapes
+        ``(samples, time_steps, features)`` and ``(samples,)``.
+    """
+    if len(x_data) <= time_steps:
+        raise ValueError(
+            f"Not enough rows ({len(x_data)}) to build sequences with time_steps={time_steps}."
+        )
+
+    x_values = x_data.to_numpy(dtype=np.float32)
+    y_values = y_data.to_numpy(dtype=np.float32)
+
+    x_seq: list[np.ndarray] = []
+    y_seq: list[np.float32] = []
+    for idx in range(time_steps, len(x_values)):
+        x_seq.append(x_values[idx - time_steps : idx])
+        y_seq.append(y_values[idx])
+
+    return np.asarray(x_seq, dtype=np.float32), np.asarray(y_seq, dtype=np.float32)
+
+
+def train_lstm_model(
+    x_train_seq: np.ndarray,
+    x_test_seq: np.ndarray,
+    y_train_seq: np.ndarray,
+    y_test_seq: np.ndarray,
     artifacts_dir: Path,
+    model_name: str,
+    model_filename: str,
+    epochs: int = 12,
 ) -> ModelMetrics:
-    """Train and evaluate lightweight LSTM for GHI forecast."""
-    x_train_lstm = x_train.to_numpy(dtype=np.float32).reshape((x_train.shape[0], 1, x_train.shape[1]))
-    x_test_lstm = x_test.to_numpy(dtype=np.float32).reshape((x_test.shape[0], 1, x_test.shape[1]))
-    y_train_lstm = y_train_ghi.to_numpy(dtype=np.float32)
-    y_test_lstm = y_test_ghi.to_numpy(dtype=np.float32)
+    """Train and evaluate one LSTM regressor on sequence data."""
 
     logger.info(
         "LSTM arrays: X_train=%s X_test=%s y_train=%s y_test=%s",
-        x_train_lstm.shape,
-        x_test_lstm.shape,
-        y_train_lstm.shape,
-        y_test_lstm.shape,
+        x_train_seq.shape,
+        x_test_seq.shape,
+        y_train_seq.shape,
+        y_test_seq.shape,
     )
 
     model = Sequential(
         [
-            LSTM(32, return_sequences=False, input_shape=(1, x_train.shape[1])),
+            LSTM(64, return_sequences=False, input_shape=(x_train_seq.shape[1], x_train_seq.shape[2])),
             Dropout(0.2),
             Dense(1),
         ]
@@ -200,24 +239,24 @@ def train_lstm(
     )
 
     model.fit(
-        x_train_lstm,
-        y_train_lstm,
-        validation_data=(x_test_lstm, y_test_lstm),
-        epochs=10,
+        x_train_seq,
+        y_train_seq,
+        validation_data=(x_test_seq, y_test_seq),
+        epochs=epochs,
         batch_size=32,
         callbacks=[early_stopping],
         verbose=1,
     )
 
-    preds = model.predict(x_test_lstm, verbose=0).reshape(-1)
-    mae = float(mean_absolute_error(y_test_lstm, preds))
-    rmse = float(np.sqrt(mean_squared_error(y_test_lstm, preds)))
+    preds = model.predict(x_test_seq, verbose=0).reshape(-1)
+    mae = float(mean_absolute_error(y_test_seq, preds))
+    rmse = float(np.sqrt(mean_squared_error(y_test_seq, preds)))
 
-    model_path = artifacts_dir / "lstm_ghi_model.keras"
+    model_path = artifacts_dir / model_filename
     model.save(model_path)
-    logger.info("LSTM MAE=%.4f RMSE=%.4f saved=%s", mae, rmse, model_path)
+    logger.info("%s MAE=%.4f RMSE=%.4f saved=%s", model_name, mae, rmse, model_path)
 
-    return ModelMetrics(model_name="lstm", mae=mae, rmse=rmse, model_path=str(model_path))
+    return ModelMetrics(model_name=model_name, mae=mae, rmse=rmse, model_path=str(model_path))
 
 
 def save_metrics(output: TrainOutput, metrics_path: Path = METRICS_PATH) -> None:
@@ -226,8 +265,10 @@ def save_metrics(output: TrainOutput, metrics_path: Path = METRICS_PATH) -> None
         "trained_at_utc": output.trained_at_utc,
         "train_rows": output.train_rows,
         "test_rows": output.test_rows,
-        "xgboost": asdict(output.xgboost),
-        "lstm": asdict(output.lstm),
+        "xgboost_ghi": asdict(output.xgboost_ghi),
+        "xgboost_temp": asdict(output.xgboost_temp),
+        "lstm_ghi": asdict(output.lstm_ghi),
+        "lstm_temp": asdict(output.lstm_temp),
     }
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
     metrics_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -235,22 +276,69 @@ def save_metrics(output: TrainOutput, metrics_path: Path = METRICS_PATH) -> None
 
 
 def main() -> None:
-    """Run end-to-end training for XGBoost and LSTM from processed CSV."""
+    """Run end-to-end training for XGBoost and LSTM on both targets."""
     configure_logging()
     ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 
     dataframe = load_processed_dataframe()
-    x_train, x_test, y_train_ghi, y_test_ghi = build_train_test_matrices(dataframe)
+    x_train, x_test, y_train_ghi, y_test_ghi, y_train_temp, y_test_temp = build_train_test_matrices(
+        dataframe
+    )
 
-    xgboost_metrics = train_xgboost(x_train, x_test, y_train_ghi, y_test_ghi, ARTIFACTS_DIR)
-    lstm_metrics = train_lstm(x_train, x_test, y_train_ghi, y_test_ghi, ARTIFACTS_DIR)
+    xgboost_ghi_metrics = train_xgboost_model(
+        x_train,
+        x_test,
+        y_train_ghi,
+        y_test_ghi,
+        ARTIFACTS_DIR,
+        model_name="xgboost_ghi",
+        model_filename="xgboost_ghi_model.pkl",
+    )
+    xgboost_temp_metrics = train_xgboost_model(
+        x_train,
+        x_test,
+        y_train_temp,
+        y_test_temp,
+        ARTIFACTS_DIR,
+        model_name="xgboost_temp",
+        model_filename="xgboost_temp_model.pkl",
+    )
+
+    x_train_seq_ghi, y_train_seq_ghi = create_sequences(x_train, y_train_ghi, time_steps=24)
+    x_test_seq_ghi, y_test_seq_ghi = create_sequences(x_test, y_test_ghi, time_steps=24)
+
+    x_train_seq_temp, y_train_seq_temp = create_sequences(x_train, y_train_temp, time_steps=24)
+    x_test_seq_temp, y_test_seq_temp = create_sequences(x_test, y_test_temp, time_steps=24)
+
+    lstm_ghi_metrics = train_lstm_model(
+        x_train_seq_ghi,
+        x_test_seq_ghi,
+        y_train_seq_ghi,
+        y_test_seq_ghi,
+        ARTIFACTS_DIR,
+        model_name="lstm_ghi",
+        model_filename="lstm_ghi_model.keras",
+        epochs=12,
+    )
+    lstm_temp_metrics = train_lstm_model(
+        x_train_seq_temp,
+        x_test_seq_temp,
+        y_train_seq_temp,
+        y_test_seq_temp,
+        ARTIFACTS_DIR,
+        model_name="lstm_temp",
+        model_filename="lstm_temp_model.keras",
+        epochs=12,
+    )
 
     output = TrainOutput(
         trained_at_utc=datetime.now(UTC).isoformat(),
         train_rows=len(x_train),
         test_rows=len(x_test),
-        xgboost=xgboost_metrics,
-        lstm=lstm_metrics,
+        xgboost_ghi=xgboost_ghi_metrics,
+        xgboost_temp=xgboost_temp_metrics,
+        lstm_ghi=lstm_ghi_metrics,
+        lstm_temp=lstm_temp_metrics,
     )
     save_metrics(output)
 
