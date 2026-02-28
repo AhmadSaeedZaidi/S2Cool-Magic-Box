@@ -1,0 +1,7 @@
+{
+  "model_name": "XGBoost-v1.4",
+  "training_cutoff": "2025-02-27",
+  "rmse": 0.82,
+  "mae": 0.56,
+  "thermal_inertia_summary": "Peak load expected 2 hours after solar peak"
+}
