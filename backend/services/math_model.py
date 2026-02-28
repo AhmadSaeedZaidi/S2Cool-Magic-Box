@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from ..config import CoolingConfig, DEFAULT_CONFIG
+from ..config import DEFAULT_CONFIG, CoolingConfig
 from ..schemas import DecisionResponse
 
 
