@@ -63,3 +63,8 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 __MACOSX/
+.env
+
+data/
+artifacts/
+magic/
