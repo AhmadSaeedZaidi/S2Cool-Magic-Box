@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
@@ -79,3 +79,27 @@ class DailySimulationResponse(BaseModel):
     solar_energy_kwh: float
     grid_energy_kwh: float
     psh_adjusted: float
+
+
+class DailyAutoSimulationRequest(BaseModel):
+    """Daily simulation request where backend decides historical vs forecast source."""
+
+    city: str
+    date_utc: date
+    panel_count: int = Field(default=10, ge=1)
+    panel_watt_rating: float = Field(default=640.0, gt=0.0)
+
+
+class DailyProfilePoint(BaseModel):
+    """One generated hourly profile point for dashboard visualization."""
+
+    timestamp_utc: datetime
+    predicted_ghi_wm2: float = Field(..., ge=0.0)
+    predicted_ambient_temp_c: float
+
+
+class DailyAutoSimulationResponse(DailySimulationResponse):
+    """Daily simulation summary plus profile and selected source mode."""
+
+    source_mode: str
+    hours: list[DailyProfilePoint]
