@@ -17,7 +17,15 @@ from preprocessing import S2CoolDataPreprocessor
 logger = logging.getLogger(__name__)
 
 RAW_TABLE_NAME = "solar_weather_data"
-OUTPUT_CSV_PATH = Path("data/processed/s2cool_features_ready.csv")
+TRAINING_OUTPUT_CSV_PATH = Path("data/processed/s2cool_features_ready.csv")
+RECENT_OUTPUT_CSV_PATH = Path("data/processed/s2cool_features_recent.csv")
+STABLE_LAG_DAYS = int(os.getenv("STABLE_LAG_DAYS", "2"))
+COUNT_RAW_SQL = text(
+    """
+    SELECT COUNT(*) AS total_rows
+    FROM solar_weather_data;
+    """
+)
 SELECT_RAW_SQL = text(
     """
     SELECT
@@ -81,7 +89,28 @@ def extract_raw_weather_data(engine: Engine) -> pd.DataFrame:
     """
     try:
         with engine.connect() as connection:
-            dataframe = pd.read_sql_query(SELECT_RAW_SQL, con=connection)
+            total_rows_result = connection.execute(COUNT_RAW_SQL).scalar_one()
+            total_rows = int(total_rows_result)
+
+            if total_rows == 0:
+                raise RuntimeError(f"Query returned no data from table '{RAW_TABLE_NAME}'.")
+
+            logger.info("[extract   0%%] Starting row fetch from %s (%d rows)", RAW_TABLE_NAME, total_rows)
+
+            chunks: list[pd.DataFrame] = []
+            fetched_rows = 0
+            for chunk in pd.read_sql_query(SELECT_RAW_SQL, con=connection, chunksize=25_000):
+                chunks.append(chunk)
+                fetched_rows += len(chunk)
+                progress = min(100, int((fetched_rows / total_rows) * 100))
+                logger.info(
+                    "[extract %3d%%] Fetched %d/%d rows",
+                    progress,
+                    fetched_rows,
+                    total_rows,
+                )
+
+            dataframe = pd.concat(chunks, ignore_index=True) if chunks else pd.DataFrame()
     except SQLAlchemyError as exc:
         raise RuntimeError("Failed to query Neon raw weather data.") from exc
 
@@ -100,15 +129,34 @@ def run_preprocessing(raw_df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         Processed feature matrix dataframe.
     """
-    processor = S2CoolDataPreprocessor()
+    processor = S2CoolDataPreprocessor(progress_enabled=False)
     return processor.process_pipeline(raw_df)
 
 
-def save_processed_features(processed_df: pd.DataFrame, output_path: Path = OUTPUT_CSV_PATH) -> None:
-    """Persist processed feature matrix to CSV.
+def split_stable_and_recent(
+    processed_df: pd.DataFrame,
+    stable_lag_days: int = STABLE_LAG_DAYS,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.Timestamp]:
+    """Split processed data into stable (training) and recent (serving) windows.
 
     Args:
-        processed_df: Fully processed feature matrix.
+        processed_df: Fully processed feature matrix indexed by timestamp.
+        stable_lag_days: Number of trailing days to reserve as recent data.
+
+    Returns:
+        Tuple of (stable_df, recent_df, cutoff_timestamp_utc).
+    """
+    cutoff_utc = pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=stable_lag_days)
+    stable_df = processed_df.loc[processed_df.index <= cutoff_utc].copy()
+    recent_df = processed_df.loc[processed_df.index > cutoff_utc].copy()
+    return stable_df, recent_df, cutoff_utc
+
+
+def save_processed_features(processed_df: pd.DataFrame, output_path: Path) -> None:
+    """Persist a processed dataframe to CSV.
+
+    Args:
+        processed_df: Processed feature matrix slice.
         output_path: Destination CSV path.
     """
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -129,8 +177,24 @@ def main() -> None:
         processed_df = run_preprocessing(raw_df)
         logger.info("Preprocessing complete. Rows after processing: %d", len(processed_df))
 
-        save_processed_features(processed_df)
-        logger.info("Saved processed features to %s", OUTPUT_CSV_PATH)
+        stable_df, recent_df, cutoff_utc = split_stable_and_recent(processed_df)
+        logger.info(
+            "Time contract cutoff (UTC): %s | stable_rows=%d | recent_rows=%d",
+            cutoff_utc.isoformat(),
+            len(stable_df),
+            len(recent_df),
+        )
+
+        if stable_df.empty:
+            raise RuntimeError(
+                "Stable training slice is empty after cutoff. Reduce STABLE_LAG_DAYS or backfill more data."
+            )
+
+        save_processed_features(stable_df, TRAINING_OUTPUT_CSV_PATH)
+        logger.info("Saved stable training features to %s", TRAINING_OUTPUT_CSV_PATH)
+
+        save_processed_features(recent_df, RECENT_OUTPUT_CSV_PATH)
+        logger.info("Saved recent serving features to %s", RECENT_OUTPUT_CSV_PATH)
     except (RuntimeError, ValueError, OSError) as exc:
         logger.exception("data_extraction pipeline failed: %s", exc)
         raise

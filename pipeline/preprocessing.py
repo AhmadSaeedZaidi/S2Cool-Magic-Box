@@ -25,16 +25,32 @@ class S2CoolDataPreprocessor:
     BASE_FEATURES: tuple[str, str] = ("GHI", "Ambient_Temp")
     LAG_HOURS: tuple[int, int, int, int, int] = (1, 2, 3, 24, 48)
 
-    def __init__(self, scaler_path: str | Path = "artifacts/s2cool_standard_scaler.joblib") -> None:
+    def __init__(
+        self,
+        scaler_path: str | Path = "artifacts/s2cool_standard_scaler.joblib",
+        progress_enabled: bool = True,
+    ) -> None:
         """Initialize preprocessor configuration.
 
         Args:
             scaler_path: Filesystem location where the fitted ``StandardScaler``
                 is serialized via ``joblib``.
+            progress_enabled: Whether to emit percentage progress logs.
         """
         self.scaler_path = Path(scaler_path)
+        self.progress_enabled = progress_enabled
         self.scaler: StandardScaler | None = None
         self.scaled_columns: list[str] = []
+
+    def _log_progress(self, percent: int, stage: str) -> None:
+        """Emit a standardized pipeline progress log line.
+
+        Args:
+            percent: Integer percentage completion marker.
+            stage: Human-readable stage description.
+        """
+        if self.progress_enabled:
+            logger.info("[preprocess %3d%%] %s", percent, stage)
 
     def process_pipeline(self, df: pd.DataFrame) -> pd.DataFrame:
         """Execute the full 7-step preprocessing pipeline in strict order.
@@ -50,19 +66,34 @@ class S2CoolDataPreprocessor:
         Raises:
             ValueError: If required columns are missing or timestamps cannot be parsed.
         """
+        self._log_progress(0, "Pipeline start")
         self._validate_input(df)
         logger.info("Preprocessing start shape: %s", df.shape)
 
+        self._log_progress(10, "Step 1/7: Time normalization & aggregation")
         processed = self._normalize_and_resample(df)
+
+        self._log_progress(30, "Step 2/7: Advanced imputation")
         processed, imputed_count = self._apply_advanced_imputation(processed)
+
+        self._log_progress(45, "Step 3/7: Cyclical time encoding")
         processed = self._apply_cyclical_encoding(processed)
+
+        self._log_progress(60, "Step 4/7: Lag feature engineering")
         processed = self._generate_lag_features(processed)
+
+        self._log_progress(75, "Step 5/7: Rolling window statistics")
         processed = self._generate_rolling_features(processed)
+
+        self._log_progress(88, "Step 6/7: Target generation")
         processed = self._generate_targets(processed)
+
+        self._log_progress(96, "Step 7/7: Scaling + scaler persistence")
         processed = self._scale_continuous_features(processed)
 
         logger.info("NaNs imputed during pipeline: %d", imputed_count)
         logger.info("Preprocessing end shape: %s", processed.shape)
+        self._log_progress(100, "Pipeline complete")
         return processed
 
     def _validate_input(self, df: pd.DataFrame) -> None:
@@ -131,8 +162,14 @@ class S2CoolDataPreprocessor:
         """
         before_missing = int(df.loc[:, list(self.BASE_FEATURES)].isna().sum().sum())
         city_frames: list[pd.DataFrame] = []
+        city_count = int(df["City"].nunique())
 
-        for _, city_frame in df.groupby("City", sort=False):
+        for idx, (city, city_frame) in enumerate(df.groupby("City", sort=False), start=1):
+            city_pct = int((idx / max(city_count, 1)) * 100)
+            self._log_progress(
+                30 + int(city_pct * 0.1),
+                f"Imputation city progress: {city} ({idx}/{city_count})",
+            )
             city_copy = city_frame.copy()
             for feature in self.BASE_FEATURES:
                 city_copy[feature] = self._impute_feature_series(city_copy[feature])
