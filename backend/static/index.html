@@ -1,0 +1,825 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MagicBox Energy Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #09090b;
+      --card: #18181b;
+      --border: #27272a;
+      --gold: #fbbf24;
+      --red: #ef4444;
+      --blue: #3b82f6;
+      --cyan: #22d3ee;
+      --text: #f4f4f5;
+      --muted: #a1a1aa;
+      --mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+      --sans: "Inter", "Roboto", system-ui, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    #root {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 18px;
+      gap: 14px;
+      max-width: 1560px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header {
+      padding: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 240px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    .muted {
+      margin: 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: 172px;
+    }
+
+    .field label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    select,
+    input,
+    .pill {
+      height: 34px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #0f0f12;
+      color: var(--text);
+      padding: 0 10px;
+      font-family: var(--sans);
+      font-size: 13px;
+    }
+
+    input[type="range"] {
+      padding: 0;
+      height: 28px;
+      border: 0;
+      background: transparent;
+      accent-color: var(--blue);
+    }
+
+    .pill {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 150px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+
+    .pill-standby {
+      color: var(--blue);
+    }
+
+    .pill-solar {
+      color: var(--gold);
+    }
+
+    .pill-grid {
+      color: var(--red);
+    }
+
+    .layout {
+      display: flex;
+      gap: 14px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .sidebar {
+      width: 312px;
+      min-width: 292px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .section-title {
+      margin: 0;
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .inline {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .inline .field {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .mono {
+      font-family: var(--mono);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.2px;
+    }
+
+    .kpi-row {
+      padding: 12px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .kpi {
+      flex: 1;
+      min-width: 180px;
+      background: #101014;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 12px;
+    }
+
+    .kpi .label {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .kpi .value {
+      font-size: 18px;
+      font-weight: 700;
+      color: #fafafa;
+    }
+
+    .chart-wrap {
+      flex: 1;
+      min-height: 360px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .legend {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .chip {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+
+    .footer {
+      padding: 12px 14px;
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .diag-group {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .diag-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .diag-item .k {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
+    .diag-item .v {
+      font-size: 13px;
+      color: #fafafa;
+    }
+
+    .state-note {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media (max-width: 1180px) {
+      .layout {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        width: 100%;
+        min-width: 100%;
+      }
+
+      .field {
+        min-width: 160px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/recharts/umd/Recharts.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel">
+    const chartLib = window.Recharts || {};
+    const hasRecharts = Boolean(window.Recharts);
+    const Empty = () => null;
+    const {
+      AreaChart = Empty,
+      Area = Empty,
+      ResponsiveContainer = ({ children }) => <div style={{ width: "100%", height: "100%" }}>{children}</div>,
+      CartesianGrid = Empty,
+      XAxis = Empty,
+      YAxis = Empty,
+      Tooltip = Empty,
+      Line = Empty,
+      Bar = Empty,
+      ComposedChart = ({ children }) => <div>{children}</div>,
+    } = chartLib;
+
+    const SITE_OPTIONS = ["Islamabad", "Lahore", "Karachi", "Peshawar"];
+    const PANEL_COUNT_FIXED = 10;
+    const DEFAULT_METRICS = {
+      model_name: "XGBoost-v1.4",
+      training_cutoff: "2025-02-27",
+      rmse: 0.82,
+      mae: 0.56,
+      thermal_inertia_summary: "Peak load expected 2 hours after solar peak",
+    };
+
+    const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+
+    function toISODate(dateObj) {
+      const y = dateObj.getFullYear();
+      const m = String(dateObj.getMonth() + 1).padStart(2, "0");
+      const d = String(dateObj.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function cityBias(city) {
+      if (city === "Karachi") return 0.95;
+      if (city === "Lahore") return 1.0;
+      if (city === "Islamabad") return 0.88;
+      return 0.82;
+    }
+
+    function seededNoise(seed) {
+      const x = Math.sin(seed * 12.9898) * 43758.5453;
+      return x - Math.floor(x);
+    }
+
+    function buildDaySeries({ city, date, panelWattage, efficiency, targetCop, coolingThreshold, startHour, endHour }) {
+      const dateSeed = new Date(date + "T00:00:00").getTime() / 86400000;
+      const bias = cityBias(city);
+      const dcKw = (PANEL_COUNT_FIXED * panelWattage) / 1000;
+      const coolingCapacityKwThermal = 20;
+      const loadKwBase = coolingCapacityKwThermal / targetCop;
+
+      const rows = [];
+      let solarPeakHour = 12;
+      let maxSolar = -1;
+
+      for (let hour = 0; hour < 24; hour += 1) {
+        const daylightShape = Math.max(0, Math.sin(((hour - 6) / 12) * Math.PI));
+        const noise = (seededNoise(dateSeed + hour * 0.37) - 0.5) * 120;
+        const predictedGhi = clamp((daylightShape * 980 * bias) + noise, 0, 1100);
+
+        const tempWave = 22 + (11 * Math.sin(((hour - 5) / 24) * 2 * Math.PI)) + (seededNoise(dateSeed + hour * 0.91) - 0.5) * 1.8;
+        const ambientTemp = Number(tempWave.toFixed(2));
+
+        const solarKw = Number((dcKw * (predictedGhi / 1000) * efficiency).toFixed(3));
+        const insideOperatingWindow = startHour <= endHour
+          ? hour >= startHour && hour <= endHour
+          : hour >= startHour || hour <= endHour;
+        const coolingNeeded = ambientTemp >= coolingThreshold && insideOperatingWindow;
+        const electricalLoadKw = coolingNeeded ? Number(loadKwBase.toFixed(3)) : 0;
+        const gridDeficitKw = Number(Math.max(0, electricalLoadKw - solarKw).toFixed(3));
+
+        if (solarKw > maxSolar) {
+          maxSolar = solarKw;
+          solarPeakHour = hour;
+        }
+
+        rows.push({
+          hour,
+          hourLabel: `${String(hour).padStart(2, "0")}:00`,
+          timestamp_utc: `${date}T${String(hour).padStart(2, "0")}:00:00Z`,
+          predicted_ghi_wm2: Number(predictedGhi.toFixed(2)),
+          predicted_ambient_temp_c: ambientTemp,
+          solar_kw: solarKw,
+          load_kw: electricalLoadKw,
+          grid_deficit_kw: gridDeficitKw,
+        });
+      }
+
+      const maxLoadHour = rows.reduce((best, row) => (row.load_kw > best.load_kw ? row : best), rows[0]).hour;
+      const inertiaHours = ((maxLoadHour - solarPeakHour + 24) % 24);
+
+      return {
+        rows,
+        inertiaSummary: `Peak load expected ${inertiaHours} hours after solar peak`,
+      };
+    }
+
+    function formatNum(value, digits = 2) {
+      return Number(value ?? 0).toFixed(digits);
+    }
+
+    function FallbackSvgChart({ data }) {
+      const width = 980;
+      const height = 320;
+      const padL = 42;
+      const padR = 20;
+      const padT = 16;
+      const padB = 30;
+      const innerW = width - padL - padR;
+      const innerH = height - padT - padB;
+
+      const maxPower = Math.max(1, ...data.map((d) => Math.max(d.solar_kw, d.load_kw, d.grid_deficit_kw)));
+      const maxTemp = Math.max(1, ...data.map((d) => d.predicted_ambient_temp_c));
+      const minTemp = Math.min(...data.map((d) => d.predicted_ambient_temp_c));
+
+      const x = (i) => padL + (i / (data.length - 1)) * innerW;
+      const yPower = (v) => padT + (1 - v / maxPower) * innerH;
+      const yTemp = (v) => {
+        if (maxTemp === minTemp) return padT + innerH / 2;
+        return padT + (1 - (v - minTemp) / (maxTemp - minTemp)) * innerH;
+      };
+
+      const solarPath = data.map((d, i) => `${i === 0 ? "M" : "L"}${x(i)} ${yPower(d.solar_kw)}`).join(" ");
+      const loadPath = data.map((d, i) => `${i === 0 ? "M" : "L"}${x(i)} ${yPower(d.load_kw)}`).join(" ");
+      const tempPath = data.map((d, i) => `${i === 0 ? "M" : "L"}${x(i)} ${yTemp(d.predicted_ambient_temp_c)}`).join(" ");
+
+      const areaPath = `${solarPath} L ${x(data.length - 1)} ${yPower(0)} L ${x(0)} ${yPower(0)} Z`;
+
+      return (
+        <svg viewBox={`0 0 ${width} ${height}`} width="100%" height="100%" role="img" aria-label="Primary energy visualization">
+          <rect x="0" y="0" width={width} height={height} fill="#18181b" />
+          <line x1={padL} y1={padT + innerH} x2={width - padR} y2={padT + innerH} stroke="#27272a" />
+          <line x1={padL} y1={padT} x2={padL} y2={padT + innerH} stroke="#27272a" />
+
+          {data.map((d, i) => {
+            if (d.grid_deficit_kw <= 0) return null;
+            const barW = Math.max(4, innerW / data.length - 3);
+            const barX = x(i) - barW / 2;
+            const barY = yPower(d.grid_deficit_kw);
+            return (
+              <rect
+                key={`bar-${i}`}
+                x={barX}
+                y={barY}
+                width={barW}
+                height={padT + innerH - barY}
+                fill="#71717a"
+                opacity="0.8"
+              />
+            );
+          })}
+
+          <path d={areaPath} fill="#fbbf24" fillOpacity="0.22" stroke="none" />
+          <path d={solarPath} fill="none" stroke="#fbbf24" strokeWidth="2" />
+          <path d={loadPath} fill="none" stroke="#ef4444" strokeWidth="2" strokeDasharray="6 4" />
+          <path d={tempPath} fill="none" stroke="#22d3ee" strokeWidth="1.6" />
+        </svg>
+      );
+    }
+
+    function App() {
+      const today = new Date();
+      const [city, setCity] = React.useState("Lahore");
+      const [date, setDate] = React.useState(toISODate(today));
+      const [targetCop, setTargetCop] = React.useState(10);
+      const [coolingThreshold, setCoolingThreshold] = React.useState(22);
+      const [panelWattage, setPanelWattage] = React.useState(640);
+      const [efficiency, setEfficiency] = React.useState(0.85);
+      const [opStartHour, setOpStartHour] = React.useState(8);
+      const [opEndHour, setOpEndHour] = React.useState(20);
+
+      const [apiSummary, setApiSummary] = React.useState(null);
+      const [apiState, setApiState] = React.useState({ loading: false, error: "" });
+      const [productionMetrics, setProductionMetrics] = React.useState(DEFAULT_METRICS);
+      const [baselineHours, setBaselineHours] = React.useState(null);
+      const [sourceMode, setSourceMode] = React.useState("HISTORICAL");
+
+      const isFutureDate = new Date(date + "T00:00:00") > new Date(toISODate(new Date()) + "T00:00:00");
+
+      const seriesPayload = React.useMemo(
+        () => buildDaySeries({
+          city,
+          date,
+          panelWattage,
+          efficiency,
+          targetCop,
+          coolingThreshold,
+          startHour: Number(opStartHour),
+          endHour: Number(opEndHour),
+        }),
+        [city, date, panelWattage, efficiency, targetCop, coolingThreshold, opStartHour, opEndHour]
+      );
+
+      const baseSeries = baselineHours ?? seriesPayload.rows;
+
+      const series = React.useMemo(() => {
+        const dcKw = (PANEL_COUNT_FIXED * panelWattage) / 1000;
+        const loadKwBase = 20 / targetCop;
+
+        return baseSeries.map((row, index) => {
+          const insideOperatingWindow = opStartHour <= opEndHour
+            ? index >= opStartHour && index <= opEndHour
+            : index >= opStartHour || index <= opEndHour;
+          const coolingNeeded = row.predicted_ambient_temp_c >= coolingThreshold && insideOperatingWindow;
+          const electricalLoadKw = coolingNeeded ? Number(loadKwBase.toFixed(3)) : 0;
+          const solarKw = Number((dcKw * (row.predicted_ghi_wm2 / 1000) * efficiency).toFixed(3));
+
+          return {
+            ...row,
+            hour: index,
+            hourLabel: `${String(index).padStart(2, "0")}:00`,
+            solar_kw: solarKw,
+            load_kw: electricalLoadKw,
+            grid_deficit_kw: Number(Math.max(0, electricalLoadKw - solarKw).toFixed(3)),
+          };
+        });
+      }, [baseSeries, panelWattage, efficiency, targetCop, coolingThreshold, opStartHour, opEndHour]);
+
+      const localMetrics = React.useMemo(() => {
+        const solarHours = series.filter((r) => r.load_kw > 0 && r.grid_deficit_kw <= 0).length;
+        const activeHours = series.filter((r) => r.load_kw > 0).length;
+        const solarCoverage = activeHours === 0 ? 0 : (solarHours / activeHours) * 100;
+        const solarEnergy = series.reduce((acc, r) => acc + r.solar_kw, 0);
+        const gridEnergy = series.reduce((acc, r) => acc + r.grid_deficit_kw, 0);
+        const savings = solarEnergy - gridEnergy;
+        const peakGhi = Math.max(...series.map((r) => r.predicted_ghi_wm2));
+        const psh = series.reduce((acc, r) => acc + r.predicted_ghi_wm2, 0) / 1000;
+        const co2OffsetKg = savings * 0.44;
+        return { solarCoverage, savings, peakGhi, psh, co2OffsetKg, activeHours };
+      }, [series]);
+
+      const heartbeat = React.useMemo(() => {
+        const nowHour = new Date().getHours();
+        const liveRow = series[nowHour] || series[0];
+        if (!liveRow || liveRow.load_kw <= 0) {
+          return { label: "[ STANDBY ]", className: "pill-standby" };
+        }
+        if (liveRow.solar_kw >= liveRow.load_kw) {
+          return { label: "[ SOLAR PRIORITY ]", className: "pill-solar" };
+        }
+        return { label: "[ GRID ACTIVE ]", className: "pill-grid" };
+      }, [series]);
+
+      React.useEffect(() => {
+        let cancelled = false;
+
+        async function loadMetrics() {
+          try {
+            const res = await fetch("/production_metrics.json");
+            if (!res.ok) return;
+            const data = await res.json();
+            if (!cancelled) {
+              setProductionMetrics({ ...DEFAULT_METRICS, ...data });
+            }
+          } catch (_err) {
+            if (!cancelled) {
+              setProductionMetrics(DEFAULT_METRICS);
+            }
+          }
+        }
+
+        loadMetrics();
+        return () => {
+          cancelled = true;
+        };
+      }, []);
+
+      React.useEffect(() => {
+        let cancelled = false;
+
+        async function runSimulation() {
+          setApiState({ loading: true, error: "" });
+          try {
+            const response = await fetch("/v1/simulate/day/auto", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                city,
+                date_utc: date,
+                panel_count: PANEL_COUNT_FIXED,
+                panel_watt_rating: Number(panelWattage),
+              }),
+            });
+
+            if (!response.ok) {
+              throw new Error(`Simulation failed (${response.status})`);
+            }
+
+            const data = await response.json();
+            if (!cancelled) {
+              const normalizedHours = (data.hours || []).map((row) => {
+                const parsedHour = new Date(row.timestamp_utc).getUTCHours();
+                return {
+                  ...row,
+                  hour: parsedHour,
+                  hourLabel: `${String(parsedHour).padStart(2, "0")}:00`,
+                };
+              });
+              setBaselineHours(normalizedHours.length ? normalizedHours : null);
+              setSourceMode(data.source_mode || "HISTORICAL");
+              setApiSummary(data);
+              setApiState({ loading: false, error: "" });
+            }
+          } catch (error) {
+            if (!cancelled) {
+              setBaselineHours(null);
+              setApiState({ loading: false, error: error.message || "Simulation failed" });
+            }
+          }
+        }
+
+        runSimulation();
+        return () => {
+          cancelled = true;
+        };
+      }, [city, date]);
+
+      const displayedPSH = apiSummary ? apiSummary.psh_adjusted : localMetrics.psh;
+      const displayedSavings = localMetrics.savings;
+
+      return (
+        <React.Fragment>
+          <div className="card header">
+            <div className="brand">
+              <h1>MagicBox Energy Intelligence</h1>
+              <p className="muted">{sourceMode === "PREDICTION" || isFutureDate ? "Prediction Mode: AI Engine" : "Historical Mode: Stored Daily Profile"}</p>
+            </div>
+
+            <div className="controls-row">
+              <div className="field">
+                <label>Site / City</label>
+                <select value={city} onChange={(e) => setCity(e.target.value)}>
+                  {SITE_OPTIONS.map((site) => <option key={site} value={site}>{site}</option>)}
+                </select>
+              </div>
+              <div className="field">
+                <label>Date</label>
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              </div>
+              <div className={`pill ${heartbeat.className}`}>{heartbeat.label}</div>
+            </div>
+          </div>
+
+          <div className="layout">
+            <aside className="card sidebar">
+              <h3 className="section-title">Magic Parameters</h3>
+              <div className="stack">
+                <div className="field">
+                  <label>Target COP (Ideal): <span className="mono">{formatNum(targetCop, 1)}</span></label>
+                  <input type="range" min="3" max="15" step="0.1" value={targetCop} onChange={(e) => setTargetCop(Number(e.target.value))} />
+                </div>
+
+                <div className="field">
+                  <label>Cooling Threshold (°C): <span className="mono">{formatNum(coolingThreshold, 1)}</span></label>
+                  <input type="range" min="18" max="35" step="0.5" value={coolingThreshold} onChange={(e) => setCoolingThreshold(Number(e.target.value))} />
+                </div>
+
+                <h3 className="section-title">PV Infrastructure Config</h3>
+
+                <div className="field">
+                  <label>Panel Count</label>
+                  <input className="mono" type="number" value={PANEL_COUNT_FIXED} readOnly disabled />
+                </div>
+
+                <div className="field">
+                  <label>Individual Panel Wattage</label>
+                  <input className="mono" type="number" min="1" step="10" value={panelWattage} onChange={(e) => setPanelWattage(Number(e.target.value) || 0)} />
+                </div>
+
+                <div className="field">
+                  <label>System Efficiency</label>
+                  <input className="mono" type="number" min="0.1" max="1" step="0.01" value={efficiency} onChange={(e) => setEfficiency(clamp(Number(e.target.value) || 0.1, 0.1, 1))} />
+                </div>
+
+                <h3 className="section-title">Operational Hours</h3>
+                <div className="inline">
+                  <div className="field">
+                    <label>Start (0-23)</label>
+                    <input className="mono" type="number" min="0" max="23" value={opStartHour} onChange={(e) => setOpStartHour(clamp(Number(e.target.value) || 0, 0, 23))} />
+                  </div>
+                  <div className="field">
+                    <label>End (0-23)</label>
+                    <input className="mono" type="number" min="0" max="23" value={opEndHour} onChange={(e) => setOpEndHour(clamp(Number(e.target.value) || 0, 0, 23))} />
+                  </div>
+                </div>
+              </div>
+            </aside>
+
+            <main className="main">
+              <section className="card kpi-row">
+                <div className="kpi">
+                  <div className="label">Solar Coverage</div>
+                  <div className="value mono">{formatNum(localMetrics.solarCoverage, 1)}%</div>
+                </div>
+                <div className="kpi">
+                  <div className="label">Total Energy Savings</div>
+                  <div className="value mono">{formatNum(displayedSavings, 2)} kWh</div>
+                </div>
+                <div className="kpi">
+                  <div className="label">Peak GHI (Predicted)</div>
+                  <div className="value mono">{formatNum(localMetrics.peakGhi, 0)} W/m²</div>
+                </div>
+                <div className="kpi">
+                  <div className="label">Calculated PSH</div>
+                  <div className="value mono">{formatNum(displayedPSH, 2)}</div>
+                </div>
+                <div className="kpi">
+                  <div className="label">CO₂ Offset</div>
+                  <div className="value mono">{formatNum(localMetrics.co2OffsetKg, 2)} kg</div>
+                </div>
+              </section>
+
+              <section className="card chart-wrap">
+                <div className="chart-header">
+                  <h3 className="section-title">Primary Visualization</h3>
+                  <div className="legend">
+                    <span className="chip"><span className="dot" style={{ background: "#fbbf24" }}></span> Solar Profile</span>
+                    <span className="chip"><span className="dot" style={{ background: "#ef4444" }}></span> Electrical Load</span>
+                    <span className="chip"><span className="dot" style={{ background: "#71717a" }}></span> Grid Deficit</span>
+                    <span className="chip"><span className="dot" style={{ background: "#22d3ee" }}></span> Ambient Temp</span>
+                  </div>
+                </div>
+
+                <div style={{ height: 360, width: "100%" }}>
+                  {hasRecharts ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={series} margin={{ top: 10, right: 30, left: 0, bottom: 10 }}>
+                        <CartesianGrid stroke="#27272a" strokeDasharray="3 3" />
+                        <XAxis dataKey="hourLabel" stroke="#a1a1aa" tick={{ fill: "#a1a1aa", fontSize: 11 }} />
+                        <YAxis yAxisId="power" stroke="#a1a1aa" tick={{ fill: "#a1a1aa", fontSize: 11 }} />
+                        <YAxis yAxisId="temp" orientation="right" stroke="#22d3ee" tick={{ fill: "#22d3ee", fontSize: 11 }} />
+                        <Tooltip
+                          contentStyle={{ background: "#18181b", border: "1px solid #27272a", borderRadius: "8px", color: "#f4f4f5" }}
+                          labelStyle={{ color: "#f4f4f5" }}
+                          formatter={(value, name) => [`${formatNum(value, 2)}`, name]}
+                        />
+
+                        <Area yAxisId="power" type="monotone" dataKey="solar_kw" stroke="#fbbf24" fill="#fbbf24" fillOpacity={0.22} name="Solar Profile (kW)" />
+                        <Line yAxisId="power" type="monotone" dataKey="load_kw" stroke="#ef4444" strokeWidth={2} strokeDasharray="6 4" dot={false} name="Electrical Load (kW)" />
+                        <Bar yAxisId="power" dataKey="grid_deficit_kw" fill="#71717a" name="Grid Deficit (kW)" />
+                        <Line yAxisId="temp" type="monotone" dataKey="predicted_ambient_temp_c" stroke="#22d3ee" strokeWidth={1.5} dot={false} name="Ambient Temp (°C)" />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <FallbackSvgChart data={series} />
+                  )}
+                </div>
+              </section>
+
+              <section className="card footer">
+                <div className="diag-group">
+                  <div className="diag-item">
+                    <span className="k">Active Brain</span>
+                    <span className="v mono">{productionMetrics.model_name}</span>
+                  </div>
+                  <div className="diag-item">
+                    <span className="k">Training Cutoff</span>
+                    <span className="v mono">{productionMetrics.training_cutoff}</span>
+                  </div>
+                  <div className="diag-item">
+                    <span className="k">RMSE</span>
+                    <span className="v mono">{formatNum(productionMetrics.rmse, 3)}</span>
+                  </div>
+                  <div className="diag-item">
+                    <span className="k">MAE</span>
+                    <span className="v mono">{formatNum(productionMetrics.mae, 3)}</span>
+                  </div>
+                </div>
+
+                <div className="diag-group">
+                  <span className="state-note">Thermal Inertia: {productionMetrics.thermal_inertia_summary || seriesPayload.inertiaSummary}</span>
+                  <span className="state-note">{apiState.loading ? "Syncing /v1/simulate/day/auto" : apiState.error ? apiState.error : `Simulation synced (${sourceMode})`}</span>
+                </div>
+              </section>
+            </main>
+          </div>
+        </React.Fragment>
+      );
+    }
+
+    const rootElement = document.getElementById("root");
+    if (ReactDOM.createRoot) {
+      ReactDOM.createRoot(rootElement).render(<App />);
+    } else {
+      ReactDOM.render(<App />, rootElement);
+    }
+  </script>
+</body>
+</html>
