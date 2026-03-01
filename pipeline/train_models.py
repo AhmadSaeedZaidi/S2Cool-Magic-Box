@@ -12,11 +12,13 @@ from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
+import tensorflow
 import xgboost as xgb
 from sklearn.metrics import mean_absolute_error, mean_squared_error
-from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.layers import Dense, Dropout, LSTM
-from tensorflow.keras.models import Sequential
+keras = tensorflow.keras
+from keras.callbacks import EarlyStopping
+from keras.layers import Dense, Dropout, LSTM
+from keras.models import Sequential
 
 logger = logging.getLogger(__name__)
 
