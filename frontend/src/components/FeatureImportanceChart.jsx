@@ -14,6 +14,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import DataTable from "./DataTable";
 
 export default function FeatureImportanceChart() {
   const [data, setData] = useState(null);
@@ -77,6 +78,18 @@ export default function FeatureImportanceChart() {
             <Bar dataKey="importance" fill="#3b82f6" barSize={18} name="Importance %" />
           </BarChart>
         </ResponsiveContainer>
+      </div>
+
+      <div className="mt-2">
+        <DataTable
+          title="Feature Importance Data"
+          columns={[
+            { key: "rank", label: "#", decimals: 0 },
+            { key: "feature", label: "Feature" },
+            { key: "importance", label: "Importance %", decimals: 1 },
+          ]}
+          rows={chartData.map((f, i) => ({ ...f, rank: i + 1 }))}
+        />
       </div>
     </section>
   );

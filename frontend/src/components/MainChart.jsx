@@ -18,7 +18,9 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  ReferenceLine,
 } from "recharts";
+import DataTable from "./DataTable";
 
 /** Custom tooltip styled to match the dark theme. */
 function ChartTooltip({ active, payload, label }) {
@@ -50,6 +52,15 @@ function LegendChip({ color, label }) {
 }
 
 export default function MainChart({ chartData }) {
+  const tableColumns = [
+    { key: "hourLabel", label: "Hour" },
+    { key: "ghi", label: "GHI (W/m\u00b2)" },
+    { key: "solarKw", label: "Solar (kW)", decimals: 3 },
+    { key: "loadKw", label: "Load (kW)", decimals: 3 },
+    { key: "gridDeficit", label: "Grid (kW)", decimals: 3 },
+    { key: "ambientTemp", label: "Temp (\u00b0C)" },
+  ];
+
   return (
     <section className="flex flex-col flex-1 min-h-[380px] rounded-lg bg-s2-card border border-s2-border p-3">
       {/* ---- Chart header + legend ---- */}
@@ -154,8 +165,33 @@ export default function MainChart({ chartData }) {
               dot={false}
               name="Ambient Temp (°C)"
             />
+
+            {/* Zero-power reference — indicates no solar possible below this */}
+            <ReferenceLine
+              yAxisId="power"
+              y={0}
+              stroke="#3f3f46"
+              strokeWidth={1}
+            />
           </ComposedChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* GHI night-time callout */}
+      <div className="flex items-center gap-2 mt-2 px-1">
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-s2-gold" />
+        <span className="text-[10px] text-s2-muted">
+          Solar generation is zero when GHI = 0 (start and end of day). No solar power is possible during those hours.
+        </span>
+      </div>
+
+      {/* Data table */}
+      <div className="mt-2">
+        <DataTable
+          title="Hourly Breakdown"
+          columns={tableColumns}
+          rows={chartData}
+        />
       </div>
     </section>
   );
