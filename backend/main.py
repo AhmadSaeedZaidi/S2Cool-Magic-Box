@@ -26,6 +26,11 @@ from .schemas import (
     DecisionResponse,
     FeatureImportanceItem,
     FeatureImportanceResponse,
+    GhiAnalysisRequest,
+    GhiAnalysisResponse,
+    GhiCityProfile,
+    GhiDailySummary,
+    GhiHourlyPoint,
     ModelComparisonResponse,
     ModelMetric,
     PshRequest,
@@ -343,7 +348,7 @@ def model_comparison() -> ModelComparisonResponse:
 
 
 @app.get("/v1/ml/feature-importance")
-def feature_importance() -> FeatureImportanceResponse:
+def feature_importance() -> FeatureImportanceResponse:  # noqa: E501
     """Return XGBoost feature importance ranking."""
     return FeatureImportanceResponse(
         model_name="XGBoost_GHI_v1",
@@ -359,4 +364,100 @@ def feature_importance() -> FeatureImportanceResponse:
             FeatureImportanceItem(feature="day_of_year_sin", importance=0.031),
             FeatureImportanceItem(feature="pressure_hpa", importance=0.022),
         ],
+    )
+
+
+# =====================================================================
+# Tab 4: GHI Deep-Dive Analysis
+# =====================================================================
+
+
+def _build_daily_summary(city: str, target_date: date, source_mode: str) -> GhiDailySummary:
+    """Build a full GHI daily summary from a generated profile."""
+    hours = _generate_profile(city, target_date, source_mode)
+    ghi_vals = [h.predicted_ghi_wm2 for h in hours]
+    temp_vals = [h.predicted_ambient_temp_c for h in hours]
+
+    peak_ghi = max(ghi_vals)
+    avg_ghi = sum(ghi_vals) / len(ghi_vals)
+    total_irradiance = sum(ghi_vals)  # Wh/m² (each reading is 1-hour avg)
+    psh = total_irradiance / 1000.0
+    zero_hours = sum(1 for g in ghi_vals if g < 1.0)
+
+    sunrise_hour = next((i for i, g in enumerate(ghi_vals) if g >= 1.0), None)
+    sunset_hour = next((23 - i for i, g in enumerate(reversed(ghi_vals)) if g >= 1.0), None)
+
+    hourly = [
+        GhiHourlyPoint(hour=i, ghi=round(ghi_vals[i], 2), temp=round(temp_vals[i], 2))
+        for i in range(24)
+    ]
+
+    return GhiDailySummary(
+        date_utc=target_date,
+        peak_ghi=round(peak_ghi, 2),
+        avg_ghi=round(avg_ghi, 2),
+        total_irradiance_whm2=round(total_irradiance, 2),
+        psh=round(psh, 3),
+        zero_hours=zero_hours,
+        sunrise_hour=sunrise_hour,
+        sunset_hour=sunset_hour,
+        hours=hourly,
+    )
+
+
+@app.post("/v1/ghi/analysis", response_model=GhiAnalysisResponse)
+def ghi_analysis(request: GhiAnalysisRequest) -> GhiAnalysisResponse:
+    """Comprehensive GHI analysis: today stats, 7-day trend, 4-city comparison, seasonal."""
+    today_utc = datetime.now(UTC).date()
+    source_mode = "HISTORICAL" if request.date_utc <= today_utc else "PREDICTION"
+
+    # 1. Selected day statistics
+    statistics = _build_daily_summary(request.city, request.date_utc, source_mode)
+
+    # 2. Last 7 days trend
+    weekly_trend: list[GhiDailySummary] = []
+    for days_ago in range(6, -1, -1):
+        d = date.fromordinal(request.date_utc.toordinal() - days_ago)
+        weekly_trend.append(_build_daily_summary(request.city, d, "HISTORICAL"))
+
+    # 3. City comparison for the requested date
+    city_comparison: list[GhiCityProfile] = []
+    for city_name in CITIES:
+        hours = _generate_profile(city_name, request.date_utc, source_mode)
+        ghi_vals = [h.predicted_ghi_wm2 for h in hours]
+        temp_vals = [h.predicted_ambient_temp_c for h in hours]
+        city_comparison.append(
+            GhiCityProfile(
+                city=city_name,
+                peak_ghi=round(max(ghi_vals), 2),
+                avg_ghi=round(sum(ghi_vals) / 24, 2),
+                psh=round(sum(ghi_vals) / 1000.0, 3),
+                hours=[
+                    GhiHourlyPoint(hour=i, ghi=round(ghi_vals[i], 2), temp=round(temp_vals[i], 2))
+                    for i in range(24)
+                ],
+            )
+        )
+
+    # 4. Seasonal curves (reuse existing logic)
+    seasonal_curves: list[SeasonalCurve] = []
+    for season_name, rep_date in _SEASON_DATES.items():
+        hours = _generate_profile(request.city, rep_date, "HISTORICAL")
+        curve_pts = [
+            SeasonalCurvePoint(
+                hour=h,
+                avg_ghi_wm2=round(hours[h].predicted_ghi_wm2, 2),
+                avg_temp_c=round(hours[h].predicted_ambient_temp_c, 2),
+            )
+            for h in range(24)
+        ]
+        seasonal_curves.append(SeasonalCurve(season=season_name, hours=curve_pts))
+
+    return GhiAnalysisResponse(
+        city=request.city,
+        date_utc=request.date_utc,
+        statistics=statistics,
+        weekly_trend=weekly_trend,
+        city_comparison=city_comparison,
+        seasonal=seasonal_curves,
     )
