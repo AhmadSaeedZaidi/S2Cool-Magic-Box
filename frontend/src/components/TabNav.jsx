@@ -4,6 +4,7 @@
 
 const TABS = [
   { id: "controller", label: "Live Controller" },
+  { id: "ghi", label: "GHI Analysis" },
   { id: "analytics", label: "Comparative Analytics" },
   { id: "diagnostics", label: "ML Diagnostics" },
 ];

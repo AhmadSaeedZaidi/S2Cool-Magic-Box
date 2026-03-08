@@ -199,3 +199,56 @@ class FeatureImportanceResponse(BaseModel):
 
     model_name: str
     features: list[FeatureImportanceItem]
+
+
+# ---- Tab 4: GHI Deep-Dive Analysis ----
+
+
+class GhiAnalysisRequest(BaseModel):
+    """Request for comprehensive GHI analysis data."""
+
+    city: str
+    date_utc: date
+
+
+class GhiHourlyPoint(BaseModel):
+    """One hour of GHI + temp data (lightweight)."""
+
+    hour: int
+    ghi: float
+    temp: float
+
+
+class GhiDailySummary(BaseModel):
+    """One day's GHI summary plus hourly breakdown."""
+
+    date_utc: date
+    peak_ghi: float
+    avg_ghi: float
+    total_irradiance_whm2: float
+    psh: float
+    zero_hours: int
+    sunrise_hour: int | None
+    sunset_hour: int | None
+    hours: list[GhiHourlyPoint]
+
+
+class GhiCityProfile(BaseModel):
+    """One city's GHI profile for a single date."""
+
+    city: str
+    peak_ghi: float
+    avg_ghi: float
+    psh: float
+    hours: list[GhiHourlyPoint]
+
+
+class GhiAnalysisResponse(BaseModel):
+    """Comprehensive GHI analysis payload."""
+
+    city: str
+    date_utc: date
+    statistics: GhiDailySummary
+    weekly_trend: list[GhiDailySummary]
+    city_comparison: list[GhiCityProfile]
+    seasonal: list[SeasonalCurve]

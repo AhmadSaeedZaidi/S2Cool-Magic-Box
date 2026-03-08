@@ -22,6 +22,7 @@ import BacktestChart from "./components/BacktestChart";
 import ModelComparisonChart from "./components/ModelComparisonChart";
 import FeatureImportanceChart from "./components/FeatureImportanceChart";
 import PipelineDetails from "./components/PipelineDetails";
+import GhiAnalysis from "./components/GhiAnalysis";
 
 // --------------- helpers ---------------
 
@@ -236,7 +237,14 @@ export default function App() {
       )}
 
       {/* ============================================================
-          TAB 2: Comparative Analytics
+          TAB 2: GHI Deep-Dive Analysis
+          ============================================================ */}
+      {activeTab === "ghi" && (
+        <GhiAnalysis city={city} date={date} />
+      )}
+
+      {/* ============================================================
+          TAB 3: Comparative Analytics
           ============================================================ */}
       {activeTab === "analytics" && (
         <div className="flex flex-col gap-3 flex-1">
